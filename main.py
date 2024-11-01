@@ -13,6 +13,7 @@ if labirinto is None:
 # Converter a imagem para escala de cinza
 labirinto_gray = cv.cvtColor(labirinto, cv.COLOR_BGR2GRAY)
 
+
 kernel = np.ones((5,5),np.uint8)
 labMorph = cv.morphologyEx(labirinto_gray, cv.MORPH_OPEN, kernel)
 
@@ -25,7 +26,7 @@ blur = cv.medianBlur(labMorph, 5)
 bordas = cv.Canny(blur, 50, 150)
 
 # Criar a máscara - ajuste os limites conforme necessário
-mask = cv.inRange(labMorph, 100, 200)  # Ajuste esses valores conforme a iluminação da imagem
+mask = cv.inRange(labMorph, 100, 200) 
 
 # Encontrar todos os contornos na máscara
 contornos, _ = cv.findContours(mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
@@ -55,13 +56,13 @@ for contorno in contornos:
             cy = int(y + h // 2)
             
             # Desenhar o centro do dado em amarelo
-            cv.circle(labirinto, (cx, cy), 5, (0, 255, 255), -1)
+            # cv.circle(labirinto, (cx, cy), 5, (0, 255, 255), -1)
 
             # Cortar a região do dado da imagem original para detectar bolinhas
             roi = labirinto_gray[y:y+h, x:x+w]
             
             # Usar HoughCircles para detectar as bolinhas dentro da ROI
-            bolinhas = cv.HoughCircles(roi, cv.HOUGH_GRADIENT, dp=1, minDist=10, param1=50, param2=30, minRadius=1, maxRadius=15)
+            bolinhas = cv.HoughCircles(roi, cv.HOUGH_GRADIENT, dp=1, minDist=5, param1=90, param2=17, minRadius=1, maxRadius=20)
             
             # Verificar se alguma bolinha foi encontrada
             if bolinhas is not None:
