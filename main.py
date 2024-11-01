@@ -1,35 +1,65 @@
 import cv2 as cv
 import numpy as np
 
-# Carregar a imagem do labirinto em escala de cinza
-labirinto = cv.imread('labirinto.jpeg', cv.IMREAD_GRAYSCALE)
+# Carregar a imagem do labirinto com os contornos em vermelho
+labirinto = cv.imread('labirintoContornado.jpg')
 
-# Converter a imagem para colorida para que as cores dos contornos apareçam
-labirinto_colorido = cv.cvtColor(labirinto, cv.COLOR_GRAY2BGR)
+# Verificar se a imagem foi carregada corretamente
+if labirinto is None:
+    print("Erro ao carregar a imagem.")
+    exit()
 
-# Aplicar um filtro GaussianBlur para suavizar a imagem
-blur = cv.medianBlur(labirinto, 5)
+# Converter a imagem para escala de cinza
+labirinto_gray = cv.cvtColor(labirinto, cv.COLOR_BGR2GRAY)
 
-# Aplicar thresholding para binarizar a imagem (invertida para que os pontos sejam brancos)
-_, thresh = cv.threshold(blur, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
+# Aplicar um filtro para suavizar a imagem
+blur = cv.medianBlur(labirinto_gray, 5)
 
-# Encontrar todos os contornos na imagem
-contornos, _ = cv.findContours(thresh, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+# Usar Canny para detectar bordas
+bordas = cv.Canny(blur, 50, 150)
 
-# Iterar sobre os contornos para detectar pontos
+# Encontrar todos os contornos na imagem original
+contornos, _ = cv.findContours(bordas, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
+# Imprimir a quantidade de contornos encontrados
+print(f"Total de contornos encontrados: {len(contornos)}")
+
+# Iterar sobre os contornos para detectar dados
 for contorno in contornos:
     area = cv.contourArea(contorno)
-    # Filtrar contornos pequenos demais ou grandes demais que não sejam pontos
-    if 300 < area < 500:  # Ajuste esses valores conforme necessário
-        # Obter o centro do contorno
-        (x, y), radius = cv.minEnclosingCircle(contorno)
-        centro = (int(x), int(y))
-        raio = int(radius)
-        
-        # Desenhar um círculo ao redor dos pontos detectados em vermelho
-        cv.circle(labirinto_colorido, centro, raio, (0, 0, 255), 2)
+    
+    # Limite para tentar pegar todos os dados
+    if 1 < area < 9000:  
+        # Obter o retângulo delimitador do dado
+        x, y, w, h = cv.boundingRect(contorno)
 
-# Mostrar a imagem com os pontos marcados em vermelho
-cv.imshow('Pontos detectados', labirinto_colorido)
+        # Verificar a proporção para considerar se é um dado
+        aspect_ratio = float(w) / h
+        if (0.5 < aspect_ratio < 2) and area > 10:  # Filtrar por proporção e área
+            # Desenhar o retângulo delimitador em verde
+            cv.rectangle(labirinto, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            
+            # Calcular o centro do dado
+            cx = int(x + w // 2)
+            cy = int(y + h // 2)
+            
+            # Desenhar o centro do dado em amarelo
+            cv.circle(labirinto, (cx, cy), 5, (0, 255, 255), -1)
+
+            # Cortar a região do dado da imagem original para detectar bolinhas
+            roi = labirinto_gray[y:y+h, x:x+w]
+            
+            # Usar HoughCircles para detectar as bolinhas dentro da ROI
+            bolinhas = cv.HoughCircles(roi, cv.HOUGH_GRADIENT, dp=1, minDist=10, param1=50, param2=30, minRadius=1, maxRadius=15)
+            
+            # Verificar se alguma bolinha foi encontrada
+            if bolinhas is not None:
+                bolinhas = np.uint16(np.around(bolinhas))
+                for i in bolinhas[0, :]:
+                    # Desenhar uma bolinha azul em cima da bolinha do dado
+                    cv.circle(labirinto, (x + i[0], y + i[1]), 5, (255, 0, 0), -1)
+
+# Mostrar a imagem com os dados detectados
+cv.imshow('Dados detectados', labirinto)
 cv.waitKey(0)
 cv.destroyAllWindows()
